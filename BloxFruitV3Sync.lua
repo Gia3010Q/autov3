@@ -279,60 +279,6 @@ end
 
 local V3Activator = {}
 
-local function TeleportTo(pos)
-    pcall(function()
-        if Character and HumanoidRootPart then
-            HumanoidRootPart.CFrame = CFrame.new(pos)
-            SafeWait(0.8)
-        end
-    end)
-end
-
-local function InteractWithNPC(npcName, maxDist)
-    maxDist = maxDist or 50
-    local interacted = false
-    pcall(function()
-        local closest, closestDist = nil, maxDist
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            if (obj.Name == npcName or string.find(obj.Name, npcName)) and obj:IsA("Model") then
-                local p = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Head") or obj:FindFirstChildWhichIsA("BasePart")
-                if p then
-                    local d = (p.Position - HumanoidRootPart.Position).Magnitude
-                    if d < closestDist then closestDist = d; closest = obj end
-                end
-            end
-        end
-        if closest then
-            local p = closest:FindFirstChild("HumanoidRootPart") or closest:FindFirstChild("Head") or closest:FindFirstChildWhichIsA("BasePart")
-            if p then HumanoidRootPart.CFrame = p.CFrame * CFrame.new(0, 0, 3); SafeWait(0.8) end
-
-            local prompt = closest:FindFirstChildWhichIsA("ProximityPrompt", true)
-            if prompt then
-                if fireproximityprompt then
-                    pcall(function() fireproximityprompt(prompt) end)
-                else
-                    pcall(function()
-                        prompt.MaxActivationDistance = 9999
-                        SafeWait(0.3)
-                        pcall(function() prompt:InputHoldBegin(); SafeWait(prompt.HoldDuration + 0.1); prompt:InputHoldEnd() end)
-                    end)
-                end
-                interacted = true; SafeWait(0.8)
-            end
-
-            if not interacted then
-                local click = closest:FindFirstChildWhichIsA("ClickDetector", true)
-                if click then
-                    if fireclickdetector then pcall(function() fireclickdetector(click) end)
-                    else pcall(function() click.MaxActivationDistance = 9999; SafeWait(0.3) end) end
-                    interacted = true; SafeWait(0.8)
-                end
-            end
-        end
-    end)
-    return interacted
-end
-
 local function FireRaceV3Remote()
     pcall(function()
         local remotes = {"RaceAwakening","AwakeRace","RaceV3","ActivateV3","RaceTransform","Awaken"}
@@ -356,33 +302,31 @@ local function FireRaceV3Remote()
     end)
 end
 
--- Activator cho từng tộc (teleport + interact + fire remote)
-local RACE_POSITIONS = {
-    Human    = Vector3.new(-7863, 5547, -381),
-    Mink     = Vector3.new(-12470, 332, -11595),
-    Fishman  = Vector3.new(61163, 20, 1819),
-    Skypiean = Vector3.new(-4607, 872, -1667),
-    Ghoul    = Vector3.new(-5150, 315, -4892),
-    Cyborg   = Vector3.new(-2834, 73, 6652),
-    Angel    = Vector3.new(-7863, 5547, -381),
-}
-
 function V3Activator.Activate()
     local race = RaceDetector.GetCurrentRace()
-    Log("INFO", "Kích hoạt V3 cho tộc: " .. race)
+    Log("INFO", "Kích hoạt V3 (Bấm phím) cho tộc: " .. race)
 
-    local pos = RACE_POSITIONS[race]
-    if pos then
-        TeleportTo(pos)
-        SafeWait(1)
-        InteractWithNPC("npc", 100)
-        SafeWait(1)
-        FireRaceV3Remote()
-        SafeWait(1.5)
+    local success = false
+
+    -- 1. Mô phỏng bấm phím T (Phím mặc định để bật V3)
+    pcall(function()
+        local VirtualInputManager = game:GetService("VirtualInputManager")
+        -- Bấm xuống
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.T, false, game)
+        task.wait(0.1)
+        -- Nhả phím
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.T, false, game)
+        success = true
+    end)
+
+    -- 2. Thử bắn thêm remote (dự phòng)
+    FireRaceV3Remote()
+
+    if success then
         Log("OK", "V3 Activator hoàn tất cho " .. race)
         return true
     else
-        Log("ERROR", "Không có vị trí cho tộc: " .. race)
+        Log("ERROR", "Không thể mô phỏng bấm phím cho " .. race)
         return false
     end
 end
