@@ -302,31 +302,87 @@ local function FireRaceV3Remote()
     end)
 end
 
+local V3_SKILL_NAMES = {
+    Human    = "Last Resort",
+    Mink     = "Agility",
+    Fishman  = "Water Body",
+    Skypiean = "Heavenly Blood",
+    Ghoul    = "Heightened Senses",
+    Cyborg   = "Energy Core",
+    Angel    = "Heavenly Blood",
+    Shark    = "Water Body",
+    Rabbit   = "Agility"
+}
+
 function V3Activator.Activate()
     local race = RaceDetector.GetCurrentRace()
-    Log("INFO", "Kích hoạt V3 (Bấm phím) cho tộc: " .. race)
+    local skillName = V3_SKILL_NAMES[race] or "Agility"
+    Log("INFO", "Kích hoạt V3 (" .. skillName .. ") cho tộc: " .. race)
 
     local success = false
+    local vim = game:GetService("VirtualInputManager")
 
-    -- 1. Mô phỏng bấm phím T (Phím mặc định để bật V3)
+    -- 1. Tìm và click nút Tộc V3 trên màn hình (Dành cho Mobile)
     pcall(function()
-        local VirtualInputManager = game:GetService("VirtualInputManager")
-        -- Bấm xuống
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.T, false, game)
-        task.wait(0.1)
-        -- Nhả phím
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.T, false, game)
-        success = true
+        local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if PlayerGui then
+            for _, obj in pairs(PlayerGui:GetDescendants()) do
+                -- Tránh nút V4 (Awakening) nếu người dùng muốn V3. 
+                -- Ta tìm đúng tên chiêu V3 theo Tộc.
+                if obj.Name == skillName or (obj:IsA("TextLabel") and obj.Text == skillName) then
+                    local btn = obj
+                    if not btn:IsA("GuiButton") and btn.Parent:IsA("GuiButton") then
+                        btn = btn.Parent
+                    end
+                    
+                    if btn:IsA("GuiButton") then
+                        Log("INFO", "Phát hiện nút " .. skillName .. " Mobile, tiến hành click!")
+                        -- Cách a: Dùng firesignal (nếu executor hỗ trợ)
+                        if firesignal then
+                            pcall(function() firesignal(btn.MouseButton1Down) end)
+                            pcall(function() firesignal(btn.MouseButton1Click) end)
+                            pcall(function() firesignal(btn.Activated) end)
+                        end
+                        -- Cách b: Dùng VirtualInputManager click vào tọa độ
+                        pcall(function()
+                            local pos = btn.AbsolutePosition
+                            local size = btn.AbsoluteSize
+                            local inset = game:GetService("GuiService"):GetGuiInset()
+                            local x = pos.X + (size.X / 2)
+                            local y = pos.Y + (size.Y / 2) + inset.Y
+                            vim:SendMouseButtonEvent(x, y, 0, true, game, 1)
+                            task.wait(0.05)
+                            vim:SendMouseButtonEvent(x, y, 0, false, game, 1)
+                        end)
+                        success = true
+                    end
+                end
+            end
+        end
     end)
 
-    -- 2. Thử bắn thêm remote (dự phòng)
+    -- 2. Mô phỏng bấm phím T (Dành cho PC)
+    pcall(function()
+        vim:SendKeyEvent(true, Enum.KeyCode.T, false, game)
+        task.wait(0.05)
+        vim:SendKeyEvent(false, Enum.KeyCode.T, false, game)
+        if not success then success = true end
+    end)
+
+    -- 3. Bắn Remote dự phòng
+    pcall(function()
+        local commE = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommE_")
+        if commE then
+            commE:FireServer("Awakening", true) -- Tên remote gốc thường gộp chung hoặc xài sự kiện phím
+        end
+    end)
     FireRaceV3Remote()
 
     if success then
-        Log("OK", "V3 Activator hoàn tất cho " .. race)
+        Log("OK", "Đã phát lệnh kích hoạt V3 cho " .. race)
         return true
     else
-        Log("ERROR", "Không thể mô phỏng bấm phím cho " .. race)
+        Log("ERROR", "Không thể mô phỏng bấm phím hoặc click cho " .. race)
         return false
     end
 end
