@@ -555,7 +555,7 @@ function GUI.Create()
         sendBtn.Size = UDim2.new(1, -PAD*2, 0, IS_MOBILE and 28 or 32)
         sendBtn.Position = UDim2.new(0, PAD, 0, y)
         sendBtn.BackgroundColor3 = COLORS.BTN_BG
-        sendBtn.Text = "🚀 GỬI TÍN HIỆU V3"
+        sendBtn.Text = "🚀 BẬT V3 TẤT CẢ"
         sendBtn.TextColor3 = COLORS.TITLE
         sendBtn.TextSize = IS_MOBILE and 11 or 13
         sendBtn.Font = Enum.Font.GothamBold
@@ -568,15 +568,25 @@ function GUI.Create()
         y = y + (IS_MOBILE and 32 or 38)
 
         sendBtn.MouseButton1Click:Connect(function()
-            Log("INFO", "Gửi tín hiệu V3 thủ công!")
-            GUI.UpdateStatus("📡 Đang gửi...", COLORS.WAITING)
-            local url = HttpHelper.BuildURL("set", {status = "true", acc = ACC_NAME})
-            local res = HttpHelper.Request(url)
-            if res and res.success then
-                GUI.UpdateStatus("✅ Đã gửi tín hiệu V3!", COLORS.SUCCESS)
-            else
-                GUI.UpdateStatus("❌ Gửi thất bại!", COLORS.ERROR)
-            end
+            Log("INFO", "Bật V3 cho acc chính và phụ!")
+            GUI.UpdateStatus("⚡ Đang bật V3...", COLORS.WAITING)
+            
+            -- Gửi tín hiệu ngay lập tức trên thread riêng
+            task.spawn(function()
+                local url = HttpHelper.BuildURL("set", {status = "true", acc = ACC_NAME})
+                HttpHelper.Request(url)
+            end)
+            
+            -- Bật V3 cho acc hiện tại
+            task.spawn(function()
+                local myRace = RaceDetector.GetCurrentRace()
+                local activated = V3Activator.Activate()
+                if activated then
+                    GUI.UpdateStatus("✅ Đã bật V3 & Gửi tín hiệu!", COLORS.SUCCESS)
+                else
+                    GUI.UpdateStatus("❌ V3 lỗi nhưng đã gửi tín hiệu!", COLORS.ERROR)
+                end
+            end)
         end)
 
         -- Resize frame
